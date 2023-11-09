@@ -5,11 +5,17 @@ import io.gatling.javaapi.core.CoreDsl.*
 import io.gatling.javaapi.http.HttpDsl.*
 import io.gatling.javaapi.jdbc.JdbcDsl.jdbcFeeder
 
+private const val nominatedPduName = "North Wales"
+private const val nominatedPduCode = "WPTNWS"
+private const val nominatedTeamName = "Wrexham - Team 1"
+private const val nominatedTeamCode = "N03F01"
+
 class AllocateCaseUsingFeSimulation : Simulation() {
 
   private val feederQuery = """
     SELECT crn, conviction_number
     FROM unallocated_cases
+    where team_code='$nominatedTeamCode'
   """
 
   private val connectSidCookieValue = System.getenv("connectSidCookieValue")
@@ -22,29 +28,43 @@ class AllocateCaseUsingFeSimulation : Simulation() {
           dbUsername,
           dbPassword,
           feederQuery
-  ).queue()
+  ).random()
 
   private val connectSidCookie = Cookie("connect.sid", connectSidCookieValue)
           .withDomain("workforce-management-dev.hmpps.service.justice.gov.uk")
           .withPath("/")
           .withSecure(true)
 
-  private val getCaseOverviewAndRisks = feed(feeder).exec(addCookie(connectSidCookie))
-          .exec(
-                  http("Teams")
-                          .get("/pdu/WPTNWS/teams")
-                          .check(
-                                  css("a:contains('View unallocated cases')").exists()
-                          )
-          ).pause(1)
-          .exec(
-                  http("Unallocated cases")
-                          .get("/pdu/WPTNWS/find-unallocated")
-                          .check(
-                                  css("button:contains('Save and view selection')").exists()
-                          )
 
-          ).exitHereIfFailed()
+  private val getCaseOverviewAndRisks = feed(feeder)
+      .exec(addCookie(connectSidCookie))
+      .exec(
+          http("Allocate cases by team")
+              .get("/pdu/$nominatedPduCode/teams")
+              .check(
+                  css(".govuk-table__caption:contains('Your teams')").exists(),
+                  css("tbody tr .govuk-table__header:contains('$nominatedTeamName')").exists(),
+                  css("a:contains('View unallocated cases')").exists()
+              )
+      ).pause(1)
+      .exec(
+          http("Unallocated cases")
+              .get("/pdu/$nominatedPduCode/find-unallocated")
+              .check(
+                  css("h1:contains('$nominatedPduName')").exists()
+              )
+              .check(
+                  css("table tbody tr td .govuk-body-s")
+                  .findAll()
+                  .transformWithSession { allCRNs, session ->
+                      allCRNs.firstOrNull { it == session.getString("crn") }
+                  }.notNull()
+              )
+              .check(
+                  css("button:contains('Save and view selection')").exists()
+              )
+      )
+      .exitHereIfFailed()
 
   private val httpProtocol =
     http.baseUrl("https://workforce-management-dev.hmpps.service.justice.gov.uk")
@@ -56,6 +76,7 @@ class AllocateCaseUsingFeSimulation : Simulation() {
             )
 
   private val users = scenario("Users").exec(getCaseOverviewAndRisks)
+
 
   init {
     setUp(
