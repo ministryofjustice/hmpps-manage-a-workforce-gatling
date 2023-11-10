@@ -42,6 +42,12 @@ class AllocateCaseSimulation(
                 allocateCaseScenarioService.getSummaryPage(
                     pduCode = nominatedPduCodeOne
                 )
+            )
+            .pause(1)
+            .exec(
+                allocateCaseScenarioService.getDocumentsPage(
+                    pduCode = nominatedPduCodeOne
+                )
             ).exitHereIfFailed()
 
     private val httpProtocol =

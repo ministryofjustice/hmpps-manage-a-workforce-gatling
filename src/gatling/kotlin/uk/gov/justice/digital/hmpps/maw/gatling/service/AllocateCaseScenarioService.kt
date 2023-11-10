@@ -9,7 +9,7 @@ class AllocateCaseScenarioService(
     private val selectorHelper: SelectorHelper = SelectorHelper()
 ) {
     fun getAllocateCasesByTeamPage(pduCode: String, teamName: String) =
-        HttpDsl.http("Allocate cases by team Page")
+        HttpDsl.http("Allocate cases by team")
             .get("/pdu/$pduCode/teams")
             .check(
                 CoreDsl.css(".govuk-table__caption:contains('Your teams')").exists(),
@@ -18,7 +18,7 @@ class AllocateCaseScenarioService(
             )
 
     fun getUnallocatedCasesPage(pduCode: String, pduName: String) =
-        HttpDsl.http("Unallocated cases Page")
+        HttpDsl.http("Unallocated cases")
             .get("/pdu/$pduCode/find-unallocated")
             .check(
                 CoreDsl.css("h1:contains('$pduName')").exists()
@@ -34,7 +34,7 @@ class AllocateCaseScenarioService(
             )
 
     fun getSummaryPage(pduCode: String) =
-        HttpDsl.http("Summary Page")
+        HttpDsl.http("Summary")
             .get { session ->
                 val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
                 val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
@@ -48,6 +48,24 @@ class AllocateCaseScenarioService(
             )
             .check(
                 CoreDsl.css("h2:contains('Summary')").exists(),
+                CoreDsl.css("a:contains('Continue')").exists()
+            )
+
+    fun getDocumentsPage(pduCode: String) =
+        HttpDsl.http("Documents")
+            .get { session ->
+                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
+                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
+                "/pdu/$pduCode/$crn/convictions/$convictionNumber/documents"
+            }
+            .check(
+                checkCaseDetailsAreInPageHeader()
+            )
+            .check(
+                checkCaseViewTabsArePresent()
+            )
+            .check(
+                CoreDsl.css("h2:contains('Documents')").exists(),
                 CoreDsl.css("a:contains('Continue')").exists()
             )
 
