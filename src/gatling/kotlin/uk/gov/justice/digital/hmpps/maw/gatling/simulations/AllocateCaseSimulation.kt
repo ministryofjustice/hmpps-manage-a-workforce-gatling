@@ -1,33 +1,48 @@
 package uk.gov.justice.digital.hmpps.maw.gatling.simulations
 
-import io.gatling.javaapi.core.*
 import io.gatling.javaapi.core.CoreDsl.*
 import io.gatling.javaapi.http.HttpDsl.*
+import uk.gov.justice.digital.hmpps.maw.gatling.BaseSimulation
 import uk.gov.justice.digital.hmpps.maw.gatling.config.HttpRequestConfig
-import uk.gov.justice.digital.hmpps.maw.gatling.helper.AllocateCaseScenarioHelper
 import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
 import uk.gov.justice.digital.hmpps.maw.gatling.jdbc.UnallocatedCaseFeeder
+import uk.gov.justice.digital.hmpps.maw.gatling.service.AllocateCaseScenarioService
 
-private const val nominatedPduName = "North Wales"
-private const val nominatedPduCode = "WPTNWS"
-private const val nominatedTeamName = "Wrexham - Team 1"
-private const val nominatedTeamCode = "N03F01"
+const val noOfConcurrentUsers = 1
+const val loadTestDurationInSecs = 1L
 
 class AllocateCaseSimulation(
-    allocateCaseScenarioHelper: AllocateCaseScenarioHelper = AllocateCaseScenarioHelper(),
+    allocateCaseScenarioService: AllocateCaseScenarioService = AllocateCaseScenarioService(),
     unallocatedCaseFeeder: UnallocatedCaseFeeder = UnallocatedCaseFeeder(),
     httpRequestConfig: HttpRequestConfig = HttpRequestConfig(),
     httpRequestHelper: HttpRequestHelper = HttpRequestHelper()
-) : Simulation() {
+) : BaseSimulation() {
 
     private val allocateCaseScenarioChainBuilder =
-        feed(unallocatedCaseFeeder.getJdbcFeeder(nominatedTeamCode)) // pulls data from unallocated_cases table
-            .exec(addCookie(httpRequestHelper.connectSidAuthCookie)) // adds the connect.sid cookie to get passed security
+        // pulls crn, conviction_number from unallocated_cases table
+        feed(unallocatedCaseFeeder.getJdbcFeeder(nominatedTeamCodeOne))
+            // adds the connect.sid cookie to get passed security
+            .exec(addCookie(httpRequestHelper.connectSidAuthCookie))
             // runs through the pages we are testing for the scenario
-            .exec(allocateCaseScenarioHelper.getAllocateCasesByTeamPage(nominatedPduCode, nominatedTeamName))
+            .exec(
+                allocateCaseScenarioService.getAllocateCasesByTeamPage(
+                    pduCode = nominatedPduCodeOne,
+                    teamName = nominatedTeamNameOne
+                )
+            )
             .pause(1)
-            .exec(allocateCaseScenarioHelper.getUnallocatedCasesPage(nominatedPduCode, nominatedPduName))
-            .exitHereIfFailed()
+            .exec(
+                allocateCaseScenarioService.getUnallocatedCasesPage(
+                    pduCode = nominatedPduCodeOne,
+                    pduName = nominatedPduNameOne
+                )
+            )
+            .pause(1)
+            .exec(
+                allocateCaseScenarioService.getSummaryPage(
+                    pduCode = nominatedPduCodeOne
+                )
+            ).exitHereIfFailed()
 
     private val httpProtocol =
         http.baseUrl(httpRequestConfig.baseUrl)
@@ -37,11 +52,13 @@ class AllocateCaseSimulation(
             .userAgentHeader(httpRequestConfig.userAgentHeader)
 
     private val allocateCaseScenarioBuilder = scenario("Allocate Case Scenario")
-            .exec(allocateCaseScenarioChainBuilder)
+        .exec(allocateCaseScenarioChainBuilder)
 
     init {
         setUp(
-            allocateCaseScenarioBuilder.injectClosed(constantConcurrentUsers(1).during(1))
+            allocateCaseScenarioBuilder.injectClosed(
+                constantConcurrentUsers(noOfConcurrentUsers).during(loadTestDurationInSecs)
+            )
         ).protocols(httpProtocol)
     }
 }

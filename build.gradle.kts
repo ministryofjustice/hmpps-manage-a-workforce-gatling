@@ -6,6 +6,10 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
 }
 
+ktlint {
+    disabledRules.set(setOf("no-wildcard-imports"))
+}
+
 gatling {
     logLevel = "WARN"
     logHttp = io.gatling.gradle.LogHttp.NONE
