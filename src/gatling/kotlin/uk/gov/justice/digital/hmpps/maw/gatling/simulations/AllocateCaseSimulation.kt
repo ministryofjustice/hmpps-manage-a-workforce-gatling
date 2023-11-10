@@ -13,16 +13,16 @@ private const val nominatedPduCode = "WPTNWS"
 private const val nominatedTeamName = "Wrexham - Team 1"
 private const val nominatedTeamCode = "N03F01"
 
-class AllocateCaseUsingFeSimulation(
+class AllocateCaseSimulation(
     allocateCaseScenarioHelper: AllocateCaseScenarioHelper = AllocateCaseScenarioHelper(),
     unallocatedCaseFeeder: UnallocatedCaseFeeder = UnallocatedCaseFeeder(),
     httpRequestConfig: HttpRequestConfig = HttpRequestConfig(),
     httpRequestHelper: HttpRequestHelper = HttpRequestHelper()
 ) : Simulation() {
 
-    private val allocateCaseScenario: ChainBuilder =
+    private val allocateCaseScenarioChainBuilder =
         feed(unallocatedCaseFeeder.getJdbcFeeder(nominatedTeamCode)) // pulls data from unallocated_cases table
-            .exec(addCookie(httpRequestHelper.connectSidAuthCookie)) // adds the connect.sid cookie to get past security
+            .exec(addCookie(httpRequestHelper.connectSidAuthCookie)) // adds the connect.sid cookie to get passed security
             // runs through the pages we are testing for the scenario
             .exec(allocateCaseScenarioHelper.getAllocateCasesByTeamPage(nominatedPduCode, nominatedTeamName))
             .pause(1)
@@ -36,12 +36,12 @@ class AllocateCaseUsingFeSimulation(
             .acceptEncodingHeader(httpRequestConfig.acceptEncodingHeader)
             .userAgentHeader(httpRequestConfig.userAgentHeader)
 
-    private val allocateCaseUsers =
-        scenario("Allocate Case Users").exec(allocateCaseScenario)
+    private val allocateCaseScenarioBuilder = scenario("Allocate Case Scenario")
+            .exec(allocateCaseScenarioChainBuilder)
 
     init {
         setUp(
-            allocateCaseUsers.injectClosed(constantConcurrentUsers(1).during(1))
+            allocateCaseScenarioBuilder.injectClosed(constantConcurrentUsers(1).during(1))
         ).protocols(httpProtocol)
     }
 }
