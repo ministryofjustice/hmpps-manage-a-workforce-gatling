@@ -19,33 +19,30 @@ class AllocateCaseSimulation(
 ) : BaseSimulation() {
 
     private val allocateCaseScenarioChainBuilder =
-        // pulls crn, conviction_number from unallocated_cases table
         feed(unallocatedCaseFeeder.getJdbcFeeder(nominatedTeamCodeOne))
-            // adds the connect.sid cookie to get passed security
             .exec(addCookie(httpRequestHelper.connectSidAuthCookie))
-            // runs through the pages we are testing for the scenario
             .exec(
-                allocateCaseScenarioService.getAllocateCasesByTeamPage(
+                allocateCaseScenarioService.hitAllocateCasesByTeamPageAndDoChecks(
                     pduCode = nominatedPduCodeOne,
                     teamName = nominatedTeamNameOne
                 )
             )
             .pause(1)
             .exec(
-                allocateCaseScenarioService.getUnallocatedCasesPage(
+                allocateCaseScenarioService.hitUnallocatedCasesPageAndDoChecks(
                     pduCode = nominatedPduCodeOne,
                     pduName = nominatedPduNameOne
                 )
             )
             .pause(1)
             .exec(
-                allocateCaseScenarioService.getSummaryPage(
+                allocateCaseScenarioService.hitSummaryPageAndDoChecks(
                     pduCode = nominatedPduCodeOne
                 )
             )
             .pause(1)
             .exec(
-                allocateCaseScenarioService.getDocumentsPage(
+                allocateCaseScenarioService.hitDocumentsPageAndDoChecks(
                     pduCode = nominatedPduCodeOne
                 )
             ).exitHereIfFailed()

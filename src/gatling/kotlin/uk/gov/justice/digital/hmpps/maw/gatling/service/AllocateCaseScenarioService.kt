@@ -8,7 +8,7 @@ import uk.gov.justice.digital.hmpps.maw.gatling.model.CaseDetailsInSession
 class AllocateCaseScenarioService(
     private val selectorHelper: SelectorHelper = SelectorHelper()
 ) {
-    fun getAllocateCasesByTeamPage(pduCode: String, teamName: String) =
+    fun hitAllocateCasesByTeamPageAndDoChecks(pduCode: String, teamName: String) =
         HttpDsl.http("Allocate cases by team")
             .get("/pdu/$pduCode/teams")
             .check(
@@ -17,7 +17,7 @@ class AllocateCaseScenarioService(
                 CoreDsl.css("a:contains('View unallocated cases')").exists()
             )
 
-    fun getUnallocatedCasesPage(pduCode: String, pduName: String) =
+    fun hitUnallocatedCasesPageAndDoChecks(pduCode: String, pduName: String) =
         HttpDsl.http("Unallocated cases")
             .get("/pdu/$pduCode/find-unallocated")
             .check(
@@ -33,7 +33,7 @@ class AllocateCaseScenarioService(
                 CoreDsl.css("button:contains('Save and view selection')").exists()
             )
 
-    fun getSummaryPage(pduCode: String) =
+    fun hitSummaryPageAndDoChecks(pduCode: String) =
         HttpDsl.http("Summary")
             .get { session ->
                 val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
@@ -51,7 +51,7 @@ class AllocateCaseScenarioService(
                 CoreDsl.css("a:contains('Continue')").exists()
             )
 
-    fun getDocumentsPage(pduCode: String) =
+    fun hitDocumentsPageAndDoChecks(pduCode: String) =
         HttpDsl.http("Documents")
             .get { session ->
                 val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
