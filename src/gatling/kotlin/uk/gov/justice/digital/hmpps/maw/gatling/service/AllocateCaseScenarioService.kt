@@ -1,127 +1,88 @@
 package uk.gov.justice.digital.hmpps.maw.gatling.service
 
+import io.gatling.javaapi.core.ChainBuilder
 import io.gatling.javaapi.core.CoreDsl
 import io.gatling.javaapi.http.HttpDsl
-import uk.gov.justice.digital.hmpps.maw.gatling.helper.SelectorHelper
-import uk.gov.justice.digital.hmpps.maw.gatling.model.CaseDetailsInSession
+import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
+import uk.gov.justice.digital.hmpps.maw.gatling.jdbc.UnallocatedCaseFeeder
+
+const val pauseForBasicCaseOnAllocateCaseByTeamPage = 2L
+const val pauseForBasicCaseOnUnallocatedCasesPage = 9L
+const val pauseForBasicCaseOnSummaryPage = 1L
+const val pauseForBasicCaseOnDocumentsPage = 6L
+const val pauseForBasicCaseOnChoosePractitionerPage: Long = 12L
+const val pauseForBasicCaseOnAllocateToAPractitionerPage: Long = 2L
+
+const val pauseForNormalCaseOnAllocateCaseByTeamPage = 20L
+const val pauseForNormalCaseOnUnallocatedCasesPage = 90L
+const val pauseForNormalCaseOnSummaryPage = 2L
+const val pauseForNormalCaseOnDocumentsPage = 60L
+const val pauseForNormalCaseOnChoosePractitionerPage: Long = 120L
+const val pauseForNormalCaseOnAllocateToAPractitionerPage: Long = 20L
 
 class AllocateCaseScenarioService(
-    private val selectorHelper: SelectorHelper = SelectorHelper()
+    private val unallocatedCaseFeeder: UnallocatedCaseFeeder = UnallocatedCaseFeeder(),
+    private val httpRequestHelper: HttpRequestHelper = HttpRequestHelper(),
+    private val pageOrchestrationService: PageOrchestrationService = PageOrchestrationService()
 ) {
-    fun hitAllocateCasesByTeamPageAndDoChecks(pduCode: String, teamName: String) =
-        HttpDsl.http("Allocate cases by team")
-            .get("/pdu/$pduCode/teams")
-            .check(
-                CoreDsl.css(".govuk-table__caption:contains('Your teams')").exists(),
-                CoreDsl.css("tbody tr .govuk-table__header:contains('$teamName')").exists(),
-                CoreDsl.css("a:contains('View unallocated cases')").exists()
-            )
-
-    fun hitUnallocatedCasesPageAndDoChecks(pduCode: String, pduName: String) =
-        HttpDsl.http("Unallocated cases")
-            .get("/pdu/$pduCode/find-unallocated")
-            .check(
-                CoreDsl.css("h1:contains('$pduName')").exists()
-            )
-            .check(
-                selectorHelper.checkSessionValueExistsInSearchedSelector(
-                    selector = "table tbody tr td .govuk-body-s",
-                    sessionKey = CaseDetailsInSession.CRN.sessionKey
-                )
-            )
-            .check(
-                CoreDsl.css("button:contains('Save and view selection')").exists()
-            )
-
-    fun hitSummaryPageAndDoChecks(pduCode: String) =
-        HttpDsl.http("Summary")
-            .get { session ->
-                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
-                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
-                "/pdu/$pduCode/$crn/convictions/$convictionNumber/case-view"
-            }
-            .check(
-                checkCaseDetailsAreInPageHeader()
-            )
-            .check(
-                checkCaseViewTabsArePresent()
-            )
-            .check(
-                CoreDsl.css("h2:contains('Summary')").exists(),
-                CoreDsl.css("a:contains('Continue')").exists()
-            )
-
-    fun hitDocumentsPageAndDoChecks(pduCode: String) =
-        HttpDsl.http("Documents")
-            .get { session ->
-                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
-                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
-                "/pdu/$pduCode/$crn/convictions/$convictionNumber/documents"
-            }
-            .check(
-                checkCaseDetailsAreInPageHeader()
-            )
-            .check(
-                checkCaseViewTabsArePresent()
-            )
-            .check(
-                CoreDsl.css("h2:contains('Documents')").exists(),
-                CoreDsl.css("a:contains('Continue')").exists()
-            )
-
-    fun hitChoosePractitionerPageAndDoChecks(pduCode: String) =
-        HttpDsl.http("Choose Practitioner")
-            .get { session ->
-                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
-                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
-                "/pdu/$pduCode/$crn/convictions/$convictionNumber/choose-practitioner"
-            }
-            .check(
-                checkCaseDetailsAreInPageHeader()
-            )
-            .check(
-                CoreDsl.css("h2:contains('Allocate to a probation practitioner')").exists(),
-                CoreDsl.css("a:contains('Greg Hawkins')").exists(),
-                CoreDsl.css("button:contains('Continue')").exists()
-            )
-
-    fun hitAllocateToAPractitionerPageAndDoChecks(
+    fun allocateCaseScenario(
         pduCode: String,
-        staffTeamCode: String,
-        staffCode: String,
-        staffName: String
-    ) =
-        HttpDsl.http("Allocate To A Practitioner")
-            .get { session ->
-                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
-                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
-                "/pdu/$pduCode/$crn/convictions/$convictionNumber/allocate/$staffTeamCode/$staffCode/allocate-to-practitioner"
-            }
-            .check(
-                checkCaseDetailsAreInPageHeader()
-            )
-            .check(
-                CoreDsl.css("h2:contains('You're allocating this case to probation practitioner $staffName (PO)')").exists(),
-                CoreDsl.css("a:contains('Continue')").exists()
-            )
+        pduName: String,
+        teamCode: String,
+        teamName: String,
+        allocationStaffTeamCode: String,
+        allocationStaffName: String,
+        pauseOnAllocateCaseByTeamPage: Long = pauseForNormalCaseOnAllocateCaseByTeamPage,
+        pauseOnUnallocatedCasesPage: Long = pauseForNormalCaseOnUnallocatedCasesPage,
+        pauseOnSummaryPage: Long = pauseForNormalCaseOnSummaryPage,
+        pauseOnDocumentsPage: Long = pauseForNormalCaseOnDocumentsPage,
+        pauseOnChoosePractitionerPage: Long = pauseForNormalCaseOnChoosePractitionerPage,
+        pauseOnAllocateToAPractitionerPage: Long = pauseForNormalCaseOnAllocateToAPractitionerPage,
 
-    private fun checkCaseDetailsAreInPageHeader() =
-        listOf(
-            selectorHelper.checkSessionValueExistsInH1(
-                sessionKey = CaseDetailsInSession.NAME.sessionKey
-            ),
-            selectorHelper.checkSessionValueExistsInH1(
-                sessionKey = CaseDetailsInSession.TIER.sessionKey
-            ),
-            selectorHelper.checkSessionValueExistsInH1(
-                sessionKey = CaseDetailsInSession.CRN.sessionKey
+    ): ChainBuilder = CoreDsl.feed(unallocatedCaseFeeder.getJdbcFeeder(teamCode))
+        .exec(HttpDsl.addCookie(httpRequestHelper.connectSidAuthCookie))
+        .exec(
+            pageOrchestrationService.hitAllocateCasesByTeamPageAndDoChecks(
+                pduCode = pduCode,
+                teamName = teamName
             )
         )
-
-    private fun checkCaseViewTabsArePresent() = listOf(
-        selectorHelper.checkTabExists(tabName = "Summary"),
-        selectorHelper.checkTabExists(tabName = "Probation record"),
-        selectorHelper.checkTabExists(tabName = "Risk"),
-        selectorHelper.checkTabExists(tabName = "Documents")
-    )
+        .pause(
+            pauseOnAllocateCaseByTeamPage
+        )
+        .exec(
+            pageOrchestrationService.hitUnallocatedCasesPageAndDoChecks(
+                pduCode = pduCode,
+                pduName = pduName
+            )
+        )
+        .pause(pauseOnUnallocatedCasesPage)
+        .exec(
+            pageOrchestrationService.hitSummaryPageAndDoChecks(
+                pduCode = pduCode
+            )
+        )
+        .pause(pauseOnSummaryPage)
+        .exec(
+            pageOrchestrationService.hitDocumentsPageAndDoChecks(
+                pduCode = pduCode
+            )
+        )
+        .pause(pauseOnDocumentsPage)
+        .exec(
+            pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
+                pduCode = pduCode
+            )
+        )
+        .pause(pauseOnChoosePractitionerPage)
+        .exec(
+            pageOrchestrationService.hitAllocateToAPractitionerPageAndDoChecks(
+                pduCode = pduCode,
+                staffTeamCode = allocationStaffTeamCode,
+                staffCode = allocationStaffTeamCode,
+                staffName = allocationStaffName
+            )
+        )
+        .pause(pauseOnAllocateToAPractitionerPage)
+        .exitHereIfFailed()
 }

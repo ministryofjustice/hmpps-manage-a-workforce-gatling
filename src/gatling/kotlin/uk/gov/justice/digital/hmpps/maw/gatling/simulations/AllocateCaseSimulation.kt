@@ -4,63 +4,14 @@ import io.gatling.javaapi.core.CoreDsl.*
 import io.gatling.javaapi.http.HttpDsl.*
 import uk.gov.justice.digital.hmpps.maw.gatling.BaseSimulation
 import uk.gov.justice.digital.hmpps.maw.gatling.config.HttpRequestConfig
-import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
-import uk.gov.justice.digital.hmpps.maw.gatling.jdbc.UnallocatedCaseFeeder
-import uk.gov.justice.digital.hmpps.maw.gatling.service.AllocateCaseScenarioService
-
-const val noOfConcurrentUsers = 5
-const val loadTestDurationInSecs = 5L
+import uk.gov.justice.digital.hmpps.maw.gatling.service.*
+import kotlin.time.*
+import kotlin.time.Duration.Companion.seconds
 
 class AllocateCaseSimulation(
     allocateCaseScenarioService: AllocateCaseScenarioService = AllocateCaseScenarioService(),
-    unallocatedCaseFeeder: UnallocatedCaseFeeder = UnallocatedCaseFeeder(),
     httpRequestConfig: HttpRequestConfig = HttpRequestConfig(),
-    httpRequestHelper: HttpRequestHelper = HttpRequestHelper()
 ) : BaseSimulation() {
-
-    private val allocateCaseScenarioChainBuilder =
-        feed(unallocatedCaseFeeder.getJdbcFeeder(nominatedTeamCodeOne))
-            .exec(addCookie(httpRequestHelper.connectSidAuthCookie))
-            .exec(
-                allocateCaseScenarioService.hitAllocateCasesByTeamPageAndDoChecks(
-                    pduCode = nominatedPduCodeOne,
-                    teamName = nominatedTeamNameOne
-                )
-            )
-            .pause(1)
-            .exec(
-                allocateCaseScenarioService.hitUnallocatedCasesPageAndDoChecks(
-                    pduCode = nominatedPduCodeOne,
-                    pduName = nominatedPduNameOne
-                )
-            )
-            .pause(1)
-            .exec(
-                allocateCaseScenarioService.hitSummaryPageAndDoChecks(
-                    pduCode = nominatedPduCodeOne
-                )
-            )
-            .pause(1)
-            .exec(
-                allocateCaseScenarioService.hitDocumentsPageAndDoChecks(
-                    pduCode = nominatedPduCodeOne
-                )
-            )
-            .pause(1)
-            .exec(
-                allocateCaseScenarioService.hitChoosePractitionerPageAndDoChecks(
-                    pduCode = nominatedPduCodeOne
-                )
-            )
-            .pause(1)
-            .exec(
-                allocateCaseScenarioService.hitAllocateToAPractitionerPageAndDoChecks(
-                    pduCode = nominatedPduCodeOne,
-                    staffTeamCode = nominatedAllocationStaffTeamCodeOne,
-                    staffCode = nominatedAllocationStaffCodeOne,
-                    staffName = nominatedAllocationStaffNameOne
-                )
-            ).exitHereIfFailed()
 
     private val httpProtocol =
         http.baseUrl(httpRequestConfig.baseUrl)
@@ -69,14 +20,59 @@ class AllocateCaseSimulation(
             .acceptEncodingHeader(httpRequestConfig.acceptEncodingHeader)
             .userAgentHeader(httpRequestConfig.userAgentHeader)
 
-    private val allocateCaseScenarioBuilder = scenario("Allocate Case Scenario")
-        .exec(allocateCaseScenarioChainBuilder)
+    private val basicCaseAllocationScenario = allocateCaseScenarioService.allocateCaseScenario(
+        pduCode = nominatedPduCodeOne,
+        pduName = nominatedPduNameOne,
+        teamCode = nominatedTeamCodeOne,
+        teamName = nominatedTeamNameOne,
+        allocationStaffTeamCode = nominatedAllocationStaffTeamCodeOne,
+        allocationStaffName = nominatedAllocationStaffNameOne,
+        pauseOnAllocateCaseByTeamPage = pauseForBasicCaseOnAllocateCaseByTeamPage,
+        pauseOnUnallocatedCasesPage = pauseForBasicCaseOnUnallocatedCasesPage,
+        pauseOnSummaryPage = pauseForBasicCaseOnSummaryPage,
+        pauseOnDocumentsPage = pauseForBasicCaseOnDocumentsPage,
+        pauseOnChoosePractitionerPage = pauseForBasicCaseOnChoosePractitionerPage,
+        pauseOnAllocateToAPractitionerPage = pauseForBasicCaseOnAllocateToAPractitionerPage,
+    )
+
+    private val normalCaseScenario = allocateCaseScenarioService.allocateCaseScenario(
+        pduCode = nominatedPduCodeOne,
+        pduName = nominatedPduNameOne,
+        teamCode = nominatedTeamCodeOne,
+        teamName = nominatedTeamNameOne,
+        allocationStaffTeamCode = nominatedAllocationStaffTeamCodeOne,
+        allocationStaffName = nominatedAllocationStaffNameOne,
+        pauseOnAllocateCaseByTeamPage = pauseForNormalCaseOnAllocateCaseByTeamPage,
+        pauseOnUnallocatedCasesPage = pauseForNormalCaseOnUnallocatedCasesPage,
+        pauseOnSummaryPage = pauseForNormalCaseOnSummaryPage,
+        pauseOnDocumentsPage = pauseForNormalCaseOnDocumentsPage,
+        pauseOnChoosePractitionerPage = pauseForNormalCaseOnChoosePractitionerPage,
+        pauseOnAllocateToAPractitionerPage = pauseForNormalCaseOnAllocateToAPractitionerPage,
+    )
+
+    private val simpleCaseUsers = scenario("Basic Case Allocation Scenario")
+        .exec(basicCaseAllocationScenario)
+
+    private val normalCases =
+        scenario("Normal Case Allocation Scenario")
+        .exec(normalCaseScenario)
 
     init {
         setUp(
-            allocateCaseScenarioBuilder.injectClosed(
-                constantConcurrentUsers(noOfConcurrentUsers).during(loadTestDurationInSecs)
-            )
-        ).protocols(httpProtocol)
+            simpleCaseUsers.injectOpen(rampUsers(2).during(60.seconds.toJavaDuration()))
+                .protocols(httpProtocol),
+
+//            normalCases.injectOpen(rampUsers(90).during(6.hours.toJavaDuration()))
+//                .protocols(httpProtocol)
+//                .andThen(normalCases.injectOpen(constantUsersPerSec(90.0).during(1.hours.toJavaDuration()))
+//                    .protocols(httpProtocol)
+//                ),
+//            simpleCaseUsers.injectOpen(rampUsers(10).during(6.hours.toJavaDuration()))
+//                .protocols(httpProtocol)
+//                .andThen(normalCases.injectOpen(constantUsersPerSec(10.0).during(1.hours.toJavaDuration()))
+//                    .protocols(httpProtocol)
+//                ),
+        ).maxDuration(20.seconds.toJavaDuration())
     }
 }
+

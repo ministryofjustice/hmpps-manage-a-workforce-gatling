@@ -2,14 +2,35 @@ package uk.gov.justice.digital.hmpps.maw.gatling.helper
 
 import io.gatling.javaapi.core.CheckBuilder.Final
 import io.gatling.javaapi.core.CoreDsl
+import uk.gov.justice.digital.hmpps.maw.gatling.model.CaseDetailsInSession
 
 class SelectorHelper {
-    fun checkSessionValueExistsInH1(sessionKey: String): Final = checkSessionValueExistsInSearchedSelector(
+    fun checkCaseDetailsAreInPageHeader() =
+        listOf(
+            checkSessionValueExistsInH1(
+                sessionKey = CaseDetailsInSession.NAME.sessionKey
+            ),
+            checkSessionValueExistsInH1(
+                sessionKey = CaseDetailsInSession.TIER.sessionKey
+            ),
+            checkSessionValueExistsInH1(
+                sessionKey = CaseDetailsInSession.CRN.sessionKey
+            )
+        )
+
+    fun checkCaseViewTabsArePresent() = listOf(
+        checkTabExists(tabName = "Summary"),
+        checkTabExists(tabName = "Probation record"),
+        checkTabExists(tabName = "Risk"),
+        checkTabExists(tabName = "Documents")
+    )
+
+    private fun checkSessionValueExistsInH1(sessionKey: String): Final = checkSessionValueExistsInSearchedSelector(
         selector = "h1",
         sessionKey
     )
 
-    fun checkTabExists(tabName: String): Final = checkValueExistsInSearchedSelector(
+    private fun checkTabExists(tabName: String): Final = checkValueExistsInSearchedSelector(
         selector = ".moj-sub-navigation__link",
         value = tabName
     )
