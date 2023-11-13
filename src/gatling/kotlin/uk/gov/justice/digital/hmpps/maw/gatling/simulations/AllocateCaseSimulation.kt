@@ -54,13 +54,13 @@ class AllocateCaseSimulation(
 
     init {
         setUp(
-            basicCaseUsers.injectOpen(constantUsersPerSec(2.0).during(60.seconds.toJavaDuration()))
-                .protocols(httpProtocol),
+            basicCaseUsers.injectClosed(constantConcurrentUsers(2)
+                .during(60.seconds.toJavaDuration())),
 
             //TODO: option 1 = soak test at peak levels
-//            normalCases.injectOpen(constantUsersPerSec(90.0).during(3.hours.toJavaDuration())).protocols(httpProtocol),
-//            basicCaseUsers.injectOpen(constantUsersPerSec(10.0).during(3.hours.toJavaDuration())).protocols(httpProtocol),
-
+//            basicCaseUsers.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration())),
+//            normalCases.injectClosed(constantConcurrentUsers(90).during(3.hours.toJavaDuration())),
+//
             //TODO: option 2 = gradual ramp in line with reality then soak test for an hour
 //            normalCases.injectOpen(rampUsers(90).during(6.hours.toJavaDuration()))
 //                .protocols(httpProtocol)
@@ -72,7 +72,9 @@ class AllocateCaseSimulation(
 //                .andThen(basicCaseUsers.injectOpen(constantUsersPerSec(10.0).during(1.hours.toJavaDuration()))
 //                    .protocols(httpProtocol)
 //                )
-        ).maxDuration(60.seconds.toJavaDuration()) // TODO: change this to the correct max time (not the temp test one)
+        )
+            .protocols(httpProtocol)
+            .maxDuration(60.seconds.toJavaDuration()) // TODO: change this to the correct max time (not the temp test one)
     }
 }
 
