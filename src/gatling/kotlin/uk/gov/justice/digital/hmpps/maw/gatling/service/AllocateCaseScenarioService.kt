@@ -69,6 +69,42 @@ class AllocateCaseScenarioService(
                 CoreDsl.css("a:contains('Continue')").exists()
             )
 
+    fun hitChoosePractitionerPageAndDoChecks(pduCode: String) =
+        HttpDsl.http("Choose Practitioner")
+            .get { session ->
+                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
+                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
+                "/pdu/$pduCode/$crn/convictions/$convictionNumber/choose-practitioner"
+            }
+            .check(
+                checkCaseDetailsAreInPageHeader()
+            )
+            .check(
+                CoreDsl.css("h2:contains('Allocate to a probation practitioner')").exists(),
+                CoreDsl.css("a:contains('Greg Hawkins')").exists(),
+                CoreDsl.css("button:contains('Continue')").exists()
+            )
+
+    fun hitAllocateToAPractitionerPageAndDoChecks(
+        pduCode: String,
+        staffTeamCode: String,
+        staffCode: String,
+        staffName: String
+    ) =
+        HttpDsl.http("Allocate To A Practitioner")
+            .get { session ->
+                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
+                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
+                "/pdu/$pduCode/$crn/convictions/$convictionNumber/allocate/$staffTeamCode/$staffCode/allocate-to-practitioner"
+            }
+            .check(
+                checkCaseDetailsAreInPageHeader()
+            )
+            .check(
+                CoreDsl.css("h2:contains('You're allocating this case to probation practitioner $staffName (PO)')").exists(),
+                CoreDsl.css("a:contains('Continue')").exists()
+            )
+
     private fun checkCaseDetailsAreInPageHeader() =
         listOf(
             selectorHelper.checkSessionValueExistsInH1(

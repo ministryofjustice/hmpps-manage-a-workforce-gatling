@@ -8,8 +8,8 @@ import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
 import uk.gov.justice.digital.hmpps.maw.gatling.jdbc.UnallocatedCaseFeeder
 import uk.gov.justice.digital.hmpps.maw.gatling.service.AllocateCaseScenarioService
 
-const val noOfConcurrentUsers = 1
-const val loadTestDurationInSecs = 1L
+const val noOfConcurrentUsers = 5
+const val loadTestDurationInSecs = 5L
 
 class AllocateCaseSimulation(
     allocateCaseScenarioService: AllocateCaseScenarioService = AllocateCaseScenarioService(),
@@ -44,6 +44,21 @@ class AllocateCaseSimulation(
             .exec(
                 allocateCaseScenarioService.hitDocumentsPageAndDoChecks(
                     pduCode = nominatedPduCodeOne
+                )
+            )
+            .pause(1)
+            .exec(
+                allocateCaseScenarioService.hitChoosePractitionerPageAndDoChecks(
+                    pduCode = nominatedPduCodeOne
+                )
+            )
+            .pause(1)
+            .exec(
+                allocateCaseScenarioService.hitAllocateToAPractitionerPageAndDoChecks(
+                    pduCode = nominatedPduCodeOne,
+                    staffTeamCode = nominatedAllocationStaffTeamCodeOne,
+                    staffCode = nominatedAllocationStaffCodeOne,
+                    staffName = nominatedAllocationStaffNameOne
                 )
             ).exitHereIfFailed()
 
