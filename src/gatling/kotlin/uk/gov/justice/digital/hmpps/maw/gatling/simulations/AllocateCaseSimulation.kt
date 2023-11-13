@@ -6,6 +6,7 @@ import uk.gov.justice.digital.hmpps.maw.gatling.BaseSimulation
 import uk.gov.justice.digital.hmpps.maw.gatling.config.HttpRequestConfig
 import uk.gov.justice.digital.hmpps.maw.gatling.service.*
 import kotlin.time.*
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 
 class AllocateCaseSimulation(
@@ -25,14 +26,11 @@ class AllocateCaseSimulation(
         pduName = nominatedPduNameOne,
         teamCode = nominatedTeamCodeOne,
         teamName = nominatedTeamNameOne,
-        allocationStaffTeamCode = nominatedAllocationStaffTeamCodeOne,
-        allocationStaffName = nominatedAllocationStaffNameOne,
         pauseOnAllocateCaseByTeamPage = pauseForBasicCaseOnAllocateCaseByTeamPage,
         pauseOnUnallocatedCasesPage = pauseForBasicCaseOnUnallocatedCasesPage,
         pauseOnSummaryPage = pauseForBasicCaseOnSummaryPage,
         pauseOnDocumentsPage = pauseForBasicCaseOnDocumentsPage,
-        pauseOnChoosePractitionerPage = pauseForBasicCaseOnChoosePractitionerPage,
-        pauseOnAllocateToAPractitionerPage = pauseForBasicCaseOnAllocateToAPractitionerPage,
+        pauseOnChoosePractitionerPage = pauseForBasicCaseOnChoosePractitionerPage
     )
 
     private val normalCaseScenario = allocateCaseScenarioService.allocateCaseScenario(
@@ -40,17 +38,14 @@ class AllocateCaseSimulation(
         pduName = nominatedPduNameOne,
         teamCode = nominatedTeamCodeOne,
         teamName = nominatedTeamNameOne,
-        allocationStaffTeamCode = nominatedAllocationStaffTeamCodeOne,
-        allocationStaffName = nominatedAllocationStaffNameOne,
         pauseOnAllocateCaseByTeamPage = pauseForNormalCaseOnAllocateCaseByTeamPage,
         pauseOnUnallocatedCasesPage = pauseForNormalCaseOnUnallocatedCasesPage,
         pauseOnSummaryPage = pauseForNormalCaseOnSummaryPage,
         pauseOnDocumentsPage = pauseForNormalCaseOnDocumentsPage,
-        pauseOnChoosePractitionerPage = pauseForNormalCaseOnChoosePractitionerPage,
-        pauseOnAllocateToAPractitionerPage = pauseForNormalCaseOnAllocateToAPractitionerPage,
+        pauseOnChoosePractitionerPage = pauseForNormalCaseOnChoosePractitionerPage
     )
 
-    private val simpleCaseUsers = scenario("Basic Case Allocation Scenario")
+    private val basicCaseUsers = scenario("Basic Case Allocation Scenario")
         .exec(basicCaseAllocationScenario)
 
     private val normalCases =
@@ -59,20 +54,25 @@ class AllocateCaseSimulation(
 
     init {
         setUp(
-            simpleCaseUsers.injectOpen(rampUsers(2).during(60.seconds.toJavaDuration()))
+            basicCaseUsers.injectOpen(constantUsersPerSec(2.0).during(60.seconds.toJavaDuration()))
                 .protocols(httpProtocol),
 
+            //TODO: option 1 = soak test at peak levels
+//            normalCases.injectOpen(constantUsersPerSec(90.0).during(3.hours.toJavaDuration())).protocols(httpProtocol),
+//            basicCaseUsers.injectOpen(constantUsersPerSec(10.0).during(3.hours.toJavaDuration())).protocols(httpProtocol),
+
+            //TODO: option 2 = gradual ramp in line with reality then soak test for an hour
 //            normalCases.injectOpen(rampUsers(90).during(6.hours.toJavaDuration()))
 //                .protocols(httpProtocol)
 //                .andThen(normalCases.injectOpen(constantUsersPerSec(90.0).during(1.hours.toJavaDuration()))
 //                    .protocols(httpProtocol)
 //                ),
-//            simpleCaseUsers.injectOpen(rampUsers(10).during(6.hours.toJavaDuration()))
+//            basicCaseUsers.injectOpen(rampUsers(10).during(6.hours.toJavaDuration()))
 //                .protocols(httpProtocol)
-//                .andThen(normalCases.injectOpen(constantUsersPerSec(10.0).during(1.hours.toJavaDuration()))
+//                .andThen(basicCaseUsers.injectOpen(constantUsersPerSec(10.0).during(1.hours.toJavaDuration()))
 //                    .protocols(httpProtocol)
-//                ),
-        ).maxDuration(20.seconds.toJavaDuration())
+//                )
+        ).maxDuration(60.seconds.toJavaDuration()) // TODO: change this to the correct max time (not the temp test one)
     }
 }
 

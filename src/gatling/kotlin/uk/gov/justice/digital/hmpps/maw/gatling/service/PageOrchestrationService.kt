@@ -84,24 +84,4 @@ class PageOrchestrationService(
                 CoreDsl.css("a:contains('Greg Hawkins')").exists(),
                 CoreDsl.css("button:contains('Continue')").exists()
             )
-
-    fun hitAllocateToAPractitionerPageAndDoChecks(
-        pduCode: String,
-        staffTeamCode: String,
-        staffCode: String,
-        staffName: String
-    ) =
-        HttpDsl.http("Allocate To A Practitioner")
-            .get { session ->
-                val crn = session.getString(CaseDetailsInSession.CRN.sessionKey)
-                val convictionNumber = session.getString(CaseDetailsInSession.CONVICTION_NUMBER.sessionKey)
-                "/pdu/$pduCode/$crn/convictions/$convictionNumber/allocate/$staffTeamCode/$staffCode/allocate-to-practitioner"
-            }
-            .check(
-                selectorHelper.checkCaseDetailsAreInPageHeader()
-            )
-            .check(
-                CoreDsl.css("h2:contains('You're allocating this case to probation practitioner $staffName (PO)')").exists(),
-                CoreDsl.css("a:contains('Continue')").exists()
-            )
 }
