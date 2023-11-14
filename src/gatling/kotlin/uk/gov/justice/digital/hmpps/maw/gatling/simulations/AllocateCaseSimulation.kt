@@ -11,7 +11,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class AllocateCaseSimulation(
     allocateCaseScenarioService: AllocateCaseScenarioService = AllocateCaseScenarioService(),
-    httpRequestConfig: HttpRequestConfig = HttpRequestConfig(),
+    httpRequestConfig: HttpRequestConfig = HttpRequestConfig()
 ) : BaseSimulation() {
 
     private val httpProtocol =
@@ -30,29 +30,24 @@ class AllocateCaseSimulation(
             pduCode = nominatedPduCodeOne,
             pduName = nominatedPduNameOne,
             teamCode = nominatedTeamCodeOne,
-            teamName = nominatedTeamNameOne,
+            teamName = nominatedTeamNameOne
         )
 
         val basicCaseUsers = scenario("Basic Case Allocation Scenario")
             .exec(basicCaseAllocationScenario)
 
         val normalCases = scenario("Normal Case Allocation Scenario")
-                .exec(normalCaseAllocationScenario)
+            .exec(normalCaseAllocationScenario)
 
         val complexCases = scenario("Complex Case Allocation Scenario")
-                .exec(complexCaseAllocationScenario)
+            .exec(complexCaseAllocationScenario)
 
         setUp(
-            basicCaseUsers.injectClosed(constantConcurrentUsers(2)
-                .during(20.seconds.toJavaDuration())),
-
-            // TODO: soak test at peak levels
-//            basicCaseUsers.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration())),
-//            normalCases.injectClosed(constantConcurrentUsers(80).during(3.hours.toJavaDuration())),
-//            complexCases.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration())),
+            basicCaseUsers.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration())),
+            normalCases.injectClosed(constantConcurrentUsers(80).during(3.hours.toJavaDuration())),
+            complexCases.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration()))
         )
             .protocols(httpProtocol)
             .maxDuration(20.seconds.toJavaDuration()) // TODO: change this to the correct max time (not the temp test one)
     }
 }
-

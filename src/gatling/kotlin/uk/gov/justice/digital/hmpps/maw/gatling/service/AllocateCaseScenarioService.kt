@@ -7,7 +7,6 @@ import uk.gov.justice.digital.hmpps.maw.gatling.constants.*
 import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
 import uk.gov.justice.digital.hmpps.maw.gatling.jdbc.UnallocatedCaseFeeder
 
-
 class AllocateCaseScenarioService(
     private val unallocatedCaseFeeder: UnallocatedCaseFeeder = UnallocatedCaseFeeder(),
     private val httpRequestHelper: HttpRequestHelper = HttpRequestHelper(),
@@ -18,7 +17,7 @@ class AllocateCaseScenarioService(
         pduCode: String,
         pduName: String,
         teamCode: String,
-        teamName: String,
+        teamName: String
     ): Triple<ChainBuilder, ChainBuilder, ChainBuilder> {
         val basicCaseAllocationScenario = allocateCaseScenario(
             pduCode,
@@ -91,20 +90,20 @@ class AllocateCaseScenarioService(
             .pause(pauseOnSummaryPage)
 
         if (pauseOnDocumentsPage != null) {
-                allocatedCaseScenarioChainBuilder.exec(
-                    pageOrchestrationService.hitDocumentsPageAndDoChecks(
-                        pduCode = pduCode
-                    )
+            allocatedCaseScenarioChainBuilder.exec(
+                pageOrchestrationService.hitDocumentsPageAndDoChecks(
+                    pduCode = pduCode
                 )
-                    .pause(pauseOnDocumentsPage)
+            )
+                .pause(pauseOnDocumentsPage)
         }
         if (pauseOnChoosePractitionerPage != null) {
             allocatedCaseScenarioChainBuilder.exec(
-                        pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
-                            pduCode = pduCode
-                        )
-                    )
-                    .pause(pauseOnChoosePractitionerPage)
+                pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
+                    pduCode = pduCode
+                )
+            )
+                .pause(pauseOnChoosePractitionerPage)
         }
         allocatedCaseScenarioChainBuilder.exitHereIfFailed()
         return allocatedCaseScenarioChainBuilder
