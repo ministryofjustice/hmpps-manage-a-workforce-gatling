@@ -1,5 +1,9 @@
 package uk.gov.justice.digital.hmpps.maw.gatling.constants
 
+const val noOfBasicCaseUsers = 10
+const val noOfNormalCaseUsers = 70
+const val noOfComplexCaseUsers = 20
+
 const val pauseForBasicCaseOnAllocateCaseByTeamPage = 5L
 const val pauseForBasicCaseOnUnallocatedCasesPage = 20L
 const val pauseForBasicCaseOnSummaryPage = 2L
