@@ -7,8 +7,4 @@ abstract class BaseSimulation : Simulation() {
     val nominatedPduCodeOne: String = "WPTNWS"
     val nominatedTeamNameOne: String = "Wrexham - Team 1"
     val nominatedTeamCodeOne: String = "N03F01"
-
-    val nominatedAllocationStaffTeamCodeOne: String = "N03F01"
-    val nominatedAllocationStaffCodeOne: String = "N57A024"
-    val nominatedAllocationStaffNameOne: String = "Rose Brandle"
 }

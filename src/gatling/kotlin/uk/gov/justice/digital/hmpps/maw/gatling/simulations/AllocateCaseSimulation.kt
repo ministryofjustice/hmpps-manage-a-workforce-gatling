@@ -21,60 +21,38 @@ class AllocateCaseSimulation(
             .acceptEncodingHeader(httpRequestConfig.acceptEncodingHeader)
             .userAgentHeader(httpRequestConfig.userAgentHeader)
 
-    private val basicCaseAllocationScenario = allocateCaseScenarioService.allocateCaseScenario(
-        pduCode = nominatedPduCodeOne,
-        pduName = nominatedPduNameOne,
-        teamCode = nominatedTeamCodeOne,
-        teamName = nominatedTeamNameOne,
-        pauseOnAllocateCaseByTeamPage = pauseForBasicCaseOnAllocateCaseByTeamPage,
-        pauseOnUnallocatedCasesPage = pauseForBasicCaseOnUnallocatedCasesPage,
-        pauseOnSummaryPage = pauseForBasicCaseOnSummaryPage,
-        pauseOnDocumentsPage = pauseForBasicCaseOnDocumentsPage,
-        pauseOnChoosePractitionerPage = pauseForBasicCaseOnChoosePractitionerPage
-    )
-
-    private val normalCaseScenario = allocateCaseScenarioService.allocateCaseScenario(
-        pduCode = nominatedPduCodeOne,
-        pduName = nominatedPduNameOne,
-        teamCode = nominatedTeamCodeOne,
-        teamName = nominatedTeamNameOne,
-        pauseOnAllocateCaseByTeamPage = pauseForNormalCaseOnAllocateCaseByTeamPage,
-        pauseOnUnallocatedCasesPage = pauseForNormalCaseOnUnallocatedCasesPage,
-        pauseOnSummaryPage = pauseForNormalCaseOnSummaryPage,
-        pauseOnDocumentsPage = pauseForNormalCaseOnDocumentsPage,
-        pauseOnChoosePractitionerPage = pauseForNormalCaseOnChoosePractitionerPage
-    )
-
-    private val basicCaseUsers = scenario("Basic Case Allocation Scenario")
-        .exec(basicCaseAllocationScenario)
-
-    private val normalCases =
-        scenario("Normal Case Allocation Scenario")
-        .exec(normalCaseScenario)
-
     init {
+        val (
+            basicCaseAllocationScenario,
+            normalCaseAllocationScenario,
+            complexCaseAllocationScenario
+        ) = allocateCaseScenarioService.buildCaseAllocationScenarios(
+            pduCode = nominatedPduCodeOne,
+            pduName = nominatedPduNameOne,
+            teamCode = nominatedTeamCodeOne,
+            teamName = nominatedTeamNameOne,
+        )
+
+        val basicCaseUsers = scenario("Basic Case Allocation Scenario")
+            .exec(basicCaseAllocationScenario)
+
+        val normalCases = scenario("Normal Case Allocation Scenario")
+                .exec(normalCaseAllocationScenario)
+
+        val complexCases = scenario("Complex Case Allocation Scenario")
+                .exec(complexCaseAllocationScenario)
+
         setUp(
             basicCaseUsers.injectClosed(constantConcurrentUsers(2)
-                .during(60.seconds.toJavaDuration())),
+                .during(20.seconds.toJavaDuration())),
 
-            //TODO: option 1 = soak test at peak levels
+            // TODO: soak test at peak levels
 //            basicCaseUsers.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration())),
-//            normalCases.injectClosed(constantConcurrentUsers(90).during(3.hours.toJavaDuration())),
-//
-            //TODO: option 2 = gradual ramp in line with reality then soak test for an hour
-//            normalCases.injectOpen(rampUsers(90).during(6.hours.toJavaDuration()))
-//                .protocols(httpProtocol)
-//                .andThen(normalCases.injectOpen(constantUsersPerSec(90.0).during(1.hours.toJavaDuration()))
-//                    .protocols(httpProtocol)
-//                ),
-//            basicCaseUsers.injectOpen(rampUsers(10).during(6.hours.toJavaDuration()))
-//                .protocols(httpProtocol)
-//                .andThen(basicCaseUsers.injectOpen(constantUsersPerSec(10.0).during(1.hours.toJavaDuration()))
-//                    .protocols(httpProtocol)
-//                )
+//            normalCases.injectClosed(constantConcurrentUsers(80).during(3.hours.toJavaDuration())),
+//            complexCases.injectClosed(constantConcurrentUsers(10).during(3.hours.toJavaDuration())),
         )
             .protocols(httpProtocol)
-            .maxDuration(60.seconds.toJavaDuration()) // TODO: change this to the correct max time (not the temp test one)
+            .maxDuration(20.seconds.toJavaDuration()) // TODO: change this to the correct max time (not the temp test one)
     }
 }
 

@@ -3,72 +3,110 @@ package uk.gov.justice.digital.hmpps.maw.gatling.service
 import io.gatling.javaapi.core.ChainBuilder
 import io.gatling.javaapi.core.CoreDsl
 import io.gatling.javaapi.http.HttpDsl
+import uk.gov.justice.digital.hmpps.maw.gatling.constants.*
 import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
 import uk.gov.justice.digital.hmpps.maw.gatling.jdbc.UnallocatedCaseFeeder
 
-const val pauseForBasicCaseOnAllocateCaseByTeamPage = 2L
-const val pauseForBasicCaseOnUnallocatedCasesPage = 9L
-const val pauseForBasicCaseOnSummaryPage = 1L
-const val pauseForBasicCaseOnDocumentsPage = 6L
-const val pauseForBasicCaseOnChoosePractitionerPage: Long = 12L
-
-const val pauseForNormalCaseOnAllocateCaseByTeamPage = 20L
-const val pauseForNormalCaseOnUnallocatedCasesPage = 90L
-const val pauseForNormalCaseOnSummaryPage = 2L
-const val pauseForNormalCaseOnDocumentsPage = 60L
-const val pauseForNormalCaseOnChoosePractitionerPage: Long = 120L
 
 class AllocateCaseScenarioService(
     private val unallocatedCaseFeeder: UnallocatedCaseFeeder = UnallocatedCaseFeeder(),
     private val httpRequestHelper: HttpRequestHelper = HttpRequestHelper(),
     private val pageOrchestrationService: PageOrchestrationService = PageOrchestrationService()
 ) {
-    fun allocateCaseScenario(
+
+    fun buildCaseAllocationScenarios(
         pduCode: String,
         pduName: String,
         teamCode: String,
         teamName: String,
-        pauseOnAllocateCaseByTeamPage: Long = pauseForNormalCaseOnAllocateCaseByTeamPage,
-        pauseOnUnallocatedCasesPage: Long = pauseForNormalCaseOnUnallocatedCasesPage,
-        pauseOnSummaryPage: Long = pauseForNormalCaseOnSummaryPage,
-        pauseOnDocumentsPage: Long = pauseForNormalCaseOnDocumentsPage,
-        pauseOnChoosePractitionerPage: Long = pauseForNormalCaseOnChoosePractitionerPage
+    ): Triple<ChainBuilder, ChainBuilder, ChainBuilder> {
+        val basicCaseAllocationScenario = allocateCaseScenario(
+            pduCode,
+            pduName,
+            teamCode,
+            teamName,
+            pauseOnAllocateCaseByTeamPage = pauseForBasicCaseOnAllocateCaseByTeamPage,
+            pauseOnUnallocatedCasesPage = pauseForBasicCaseOnUnallocatedCasesPage,
+            pauseOnSummaryPage = pauseForBasicCaseOnSummaryPage
+        )
 
-    ): ChainBuilder = CoreDsl.feed(unallocatedCaseFeeder.getJdbcFeeder(teamCode))
-        .exec(HttpDsl.addCookie(httpRequestHelper.connectSidAuthCookie))
-        .exec(
-            pageOrchestrationService.hitAllocateCasesByTeamPageAndDoChecks(
-                pduCode = pduCode,
-                teamName = teamName
+        val normalCaseAllocationScenario = allocateCaseScenario(
+            pduCode = pduCode,
+            pduName,
+            teamCode,
+            teamName,
+            pauseOnAllocateCaseByTeamPage = pauseForNormalCaseOnAllocateCaseByTeamPage,
+            pauseOnUnallocatedCasesPage = pauseForNormalCaseOnUnallocatedCasesPage,
+            pauseOnSummaryPage = pauseForNormalCaseOnSummaryPage,
+            pauseOnChoosePractitionerPage = pauseForNormalCaseOnChoosePractitionerPage
+        )
+
+        val complexCaseAllocationScenario = allocateCaseScenario(
+            pduCode,
+            pduName,
+            teamCode,
+            teamName,
+            pauseOnAllocateCaseByTeamPage = pauseForComplexCaseOnAllocateCaseByTeamPage,
+            pauseOnUnallocatedCasesPage = pauseForComplexCaseOnUnallocatedCasesPage,
+            pauseOnSummaryPage = pauseForComplexCaseOnSummaryPage,
+            pauseOnDocumentsPage = pauseForComplexCaseOnDocumentsPage
+        )
+        return Triple(basicCaseAllocationScenario, normalCaseAllocationScenario, complexCaseAllocationScenario)
+    }
+
+    private fun allocateCaseScenario(
+        pduCode: String,
+        pduName: String,
+        teamCode: String,
+        teamName: String,
+        pauseOnAllocateCaseByTeamPage: Long,
+        pauseOnUnallocatedCasesPage: Long,
+        pauseOnSummaryPage: Long,
+        pauseOnDocumentsPage: Long? = null,
+        pauseOnChoosePractitionerPage: Long? = null
+    ): ChainBuilder {
+        val allocatedCaseScenarioChainBuilder = CoreDsl.feed(unallocatedCaseFeeder.getJdbcFeeder(teamCode))
+            .exec(HttpDsl.addCookie(httpRequestHelper.connectSidAuthCookie))
+            .exec(
+                pageOrchestrationService.hitAllocateCasesByTeamPageAndDoChecks(
+                    pduCode = pduCode,
+                    teamName = teamName
+                )
             )
-        )
-        .pause(
-            pauseOnAllocateCaseByTeamPage
-        )
-        .exec(
-            pageOrchestrationService.hitUnallocatedCasesPageAndDoChecks(
-                pduCode = pduCode,
-                pduName = pduName
+            .pause(
+                pauseOnAllocateCaseByTeamPage
             )
-        )
-        .pause(pauseOnUnallocatedCasesPage)
-        .exec(
-            pageOrchestrationService.hitSummaryPageAndDoChecks(
-                pduCode = pduCode
+            .exec(
+                pageOrchestrationService.hitUnallocatedCasesPageAndDoChecks(
+                    pduCode = pduCode,
+                    pduName = pduName
+                )
             )
-        )
-        .pause(pauseOnSummaryPage)
-        .exec(
-            pageOrchestrationService.hitDocumentsPageAndDoChecks(
-                pduCode = pduCode
+            .pause(pauseOnUnallocatedCasesPage)
+            .exec(
+                pageOrchestrationService.hitSummaryPageAndDoChecks(
+                    pduCode = pduCode
+                )
             )
-        )
-        .pause(pauseOnDocumentsPage)
-        .exec(
-            pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
-                pduCode = pduCode
-            )
-        )
-        .pause(pauseOnChoosePractitionerPage)
-        .exitHereIfFailed()
+            .pause(pauseOnSummaryPage)
+
+        if (pauseOnDocumentsPage != null) {
+                allocatedCaseScenarioChainBuilder.exec(
+                    pageOrchestrationService.hitDocumentsPageAndDoChecks(
+                        pduCode = pduCode
+                    )
+                )
+                    .pause(pauseOnDocumentsPage)
+        }
+        if (pauseOnChoosePractitionerPage != null) {
+            allocatedCaseScenarioChainBuilder.exec(
+                        pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
+                            pduCode = pduCode
+                        )
+                    )
+                    .pause(pauseOnChoosePractitionerPage)
+        }
+        allocatedCaseScenarioChainBuilder.exitHereIfFailed()
+        return allocatedCaseScenarioChainBuilder
+    }
 }
