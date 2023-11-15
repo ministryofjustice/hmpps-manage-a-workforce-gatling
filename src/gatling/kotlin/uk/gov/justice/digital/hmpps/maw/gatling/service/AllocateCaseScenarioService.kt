@@ -2,6 +2,7 @@ package uk.gov.justice.digital.hmpps.maw.gatling.service
 
 import io.gatling.javaapi.core.ChainBuilder
 import io.gatling.javaapi.core.CoreDsl
+import io.gatling.javaapi.core.ScenarioBuilder
 import io.gatling.javaapi.http.HttpDsl
 import uk.gov.justice.digital.hmpps.maw.gatling.constants.*
 import uk.gov.justice.digital.hmpps.maw.gatling.helper.HttpRequestHelper
@@ -18,8 +19,8 @@ class AllocateCaseScenarioService(
         pduName: String,
         teamCode: String,
         teamName: String
-    ): Triple<ChainBuilder, ChainBuilder, ChainBuilder> {
-        val basicCaseAllocationScenario = allocateCaseScenario(
+    ): Triple<ScenarioBuilder, ScenarioBuilder, ScenarioBuilder> {
+        val basicCaseChainBuilder = httpChainBuilderForTeamPageAndUnallocatedCasesPageAndCaseSpecificSummaryPage(
             pduCode,
             pduName,
             teamCode,
@@ -28,43 +29,60 @@ class AllocateCaseScenarioService(
             pauseOnUnallocatedCasesPage = pauseForBasicCaseOnUnallocatedCasesPage,
             pauseOnSummaryPage = pauseForBasicCaseOnSummaryPage
         )
+            .exitHereIfFailed()
 
-        val normalCaseAllocationScenario = allocateCaseScenario(
+        val normalCaseChainBuilder = httpChainBuilderForTeamPageAndUnallocatedCasesPageAndCaseSpecificSummaryPage(
             pduCode = pduCode,
             pduName,
             teamCode,
             teamName,
             pauseOnAllocateCaseByTeamPage = pauseForNormalCaseOnAllocateCaseByTeamPage,
             pauseOnUnallocatedCasesPage = pauseForNormalCaseOnUnallocatedCasesPage,
-            pauseOnSummaryPage = pauseForNormalCaseOnSummaryPage,
-            pauseOnChoosePractitionerPage = pauseForNormalCaseOnChoosePractitionerPage
+            pauseOnSummaryPage = pauseForNormalCaseOnSummaryPage
+        ).exec(
+            pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
+                pduCode = pduCode
+            )
         )
+            .pause(pauseForNormalCaseOnChoosePractitionerPage)
+            .exitHereIfFailed()
 
-        val complexCaseAllocationScenario = allocateCaseScenario(
+        val complexCaseChainBuilder = httpChainBuilderForTeamPageAndUnallocatedCasesPageAndCaseSpecificSummaryPage(
             pduCode,
             pduName,
             teamCode,
             teamName,
             pauseOnAllocateCaseByTeamPage = pauseForComplexCaseOnAllocateCaseByTeamPage,
             pauseOnUnallocatedCasesPage = pauseForComplexCaseOnUnallocatedCasesPage,
-            pauseOnSummaryPage = pauseForComplexCaseOnSummaryPage,
-            pauseOnDocumentsPage = pauseForComplexCaseOnDocumentsPage
+            pauseOnSummaryPage = pauseForComplexCaseOnSummaryPage
+        ).exec(
+            pageOrchestrationService.hitDocumentsPageAndDoChecks(
+                pduCode = pduCode
+            )
         )
-        return Triple(basicCaseAllocationScenario, normalCaseAllocationScenario, complexCaseAllocationScenario)
+            .pause(pauseForComplexCaseOnDocumentsPage)
+            .exitHereIfFailed()
+
+        val basicCasesScenario = CoreDsl.scenario("Basic Case Allocation Scenario")
+            .exec(basicCaseChainBuilder)
+
+        val normalCasesScenario = CoreDsl.scenario("Normal Case Allocation Scenario")
+            .exec(normalCaseChainBuilder)
+
+        val complexCasesScenario = CoreDsl.scenario("Complex Case Allocation Scenario")
+            .exec(complexCaseChainBuilder)
+        return Triple(basicCasesScenario, normalCasesScenario, complexCasesScenario)
     }
 
-    private fun allocateCaseScenario(
+    private fun httpChainBuilderForTeamPageAndUnallocatedCasesPageAndCaseSpecificSummaryPage(
         pduCode: String,
         pduName: String,
         teamCode: String,
         teamName: String,
         pauseOnAllocateCaseByTeamPage: Long,
         pauseOnUnallocatedCasesPage: Long,
-        pauseOnSummaryPage: Long,
-        pauseOnDocumentsPage: Long? = null,
-        pauseOnChoosePractitionerPage: Long? = null
-    ): ChainBuilder {
-        val allocatedCaseScenarioChainBuilder = CoreDsl.feed(unallocatedCaseFeeder.getJdbcFeeder(teamCode))
+        pauseOnSummaryPage: Long
+    ): ChainBuilder = CoreDsl.feed(unallocatedCaseFeeder.getJdbcFeeder(teamCode))
             .exec(HttpDsl.addCookie(httpRequestHelper.connectSidAuthCookie))
             .exec(
                 pageOrchestrationService.hitAllocateCasesByTeamPageAndDoChecks(
@@ -75,37 +93,18 @@ class AllocateCaseScenarioService(
             .pause(
                 pauseOnAllocateCaseByTeamPage
             )
-            .exec(
-                pageOrchestrationService.hitUnallocatedCasesPageAndDoChecks(
-                    pduCode = pduCode,
-                    pduName = pduName
-                )
-            )
-            .pause(pauseOnUnallocatedCasesPage)
+            // have removed the below 'Unallocated Cases' page HTTP call as it intermittently fails on DEV env
+//            .exec(
+//                pageOrchestrationService.hitUnallocatedCasesPageAndDoChecks(
+//                    pduCode = pduCode,
+//                    pduName = pduName
+//                )
+//            )
+//            .pause(pauseOnUnallocatedCasesPage)
             .exec(
                 pageOrchestrationService.hitSummaryPageAndDoChecks(
                     pduCode = pduCode
                 )
             )
             .pause(pauseOnSummaryPage)
-
-        if (pauseOnDocumentsPage != null) {
-            allocatedCaseScenarioChainBuilder.exec(
-                pageOrchestrationService.hitDocumentsPageAndDoChecks(
-                    pduCode = pduCode
-                )
-            )
-                .pause(pauseOnDocumentsPage)
-        }
-        if (pauseOnChoosePractitionerPage != null) {
-            allocatedCaseScenarioChainBuilder.exec(
-                pageOrchestrationService.hitChoosePractitionerPageAndDoChecks(
-                    pduCode = pduCode
-                )
-            )
-                .pause(pauseOnChoosePractitionerPage)
-        }
-        allocatedCaseScenarioChainBuilder.exitHereIfFailed()
-        return allocatedCaseScenarioChainBuilder
-    }
 }

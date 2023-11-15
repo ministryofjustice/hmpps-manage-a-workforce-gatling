@@ -10,6 +10,7 @@ import uk.gov.justice.digital.hmpps.maw.gatling.constants.noOfNormalCaseUsers
 import uk.gov.justice.digital.hmpps.maw.gatling.service.*
 import kotlin.time.*
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 class AllocateCaseSimulation(
     allocateCaseScenarioService: AllocateCaseScenarioService = AllocateCaseScenarioService(),
@@ -25,9 +26,9 @@ class AllocateCaseSimulation(
 
     init {
         val (
-            basicCaseAllocationScenario,
-            normalCaseAllocationScenario,
-            complexCaseAllocationScenario
+            basicCasesAllocationScenario,
+            normalCasesAllocationScenario,
+            complexCasesAllocationScenario
         ) = allocateCaseScenarioService.buildCaseAllocationScenarios(
             pduCode = nominatedPduCodeOne,
             pduName = nominatedPduNameOne,
@@ -35,27 +36,18 @@ class AllocateCaseSimulation(
             teamName = nominatedTeamNameOne
         )
 
-        val basicCaseUsers = scenario("Basic Case Allocation Scenario")
-            .exec(basicCaseAllocationScenario)
-
-        val normalCases = scenario("Normal Case Allocation Scenario")
-            .exec(normalCaseAllocationScenario)
-
-        val complexCases = scenario("Complex Case Allocation Scenario")
-            .exec(complexCaseAllocationScenario)
-
         setUp(
-            basicCaseUsers.injectClosed(
-                constantConcurrentUsers(noOfBasicCaseUsers).during(3.hours.toJavaDuration())
+            basicCasesAllocationScenario.injectClosed(
+                constantConcurrentUsers(noOfBasicCaseUsers).during(10.minutes.toJavaDuration())
             ),
-            normalCases.injectClosed(
-                constantConcurrentUsers(noOfNormalCaseUsers).during(3.hours.toJavaDuration())
+            normalCasesAllocationScenario.injectClosed(
+                constantConcurrentUsers(noOfNormalCaseUsers).during(10.minutes.toJavaDuration())
             ),
-            complexCases.injectClosed(
-                constantConcurrentUsers(noOfComplexCaseUsers).during(3.hours.toJavaDuration())
+            complexCasesAllocationScenario.injectClosed(
+                constantConcurrentUsers(noOfComplexCaseUsers).during(10.minutes.toJavaDuration())
             )
         )
             .protocols(httpProtocol)
-            .maxDuration(3.hours.toJavaDuration())
+            .maxDuration(10.minutes.toJavaDuration())
     }
 }

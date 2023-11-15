@@ -11,8 +11,8 @@ ktlint {
 }
 
 gatling {
-    logLevel = "WARN"
-    logHttp = io.gatling.gradle.LogHttp.NONE
+    logLevel = "ERROR"
+    logHttp = io.gatling.gradle.LogHttp.FAILURES
 }
 
 repositories {
