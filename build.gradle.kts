@@ -3,11 +3,16 @@ plugins {
     kotlin("plugin.allopen")
 
     id("io.gatling.gradle") version "3.9.5.6"
+    id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
+}
+
+ktlint {
+    disabledRules.set(setOf("no-wildcard-imports"))
 }
 
 gatling {
-    logLevel = "WARN"
-    logHttp = io.gatling.gradle.LogHttp.NONE
+    logLevel = "ERROR"
+    logHttp = io.gatling.gradle.LogHttp.FAILURES
 }
 
 repositories {
