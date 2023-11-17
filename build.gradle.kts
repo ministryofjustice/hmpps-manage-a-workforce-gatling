@@ -15,6 +15,10 @@ gatling {
     logHttp = io.gatling.gradle.LogHttp.FAILURES
 }
 
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(18))
+}
+
 repositories {
     mavenCentral()
 }
